@@ -1,0 +1,4 @@
+#NEXUS
+begin trees;
+	tree tree_1 = [&R] (Ciona:0.35224,(Eptatretus:0.470023,((Scleropages:0.128173,((Ictalurus:0.12497,Danio:0.110014):0.036789,(Salmo:0.109418,(Takifugu:0.112655,(Poecilia:0.099787,(Labrus:0.082762,Amphiprion:0.055754):0.01799):0.020448):0.04896):0.027024):0.02395):0.067006,(Callorhinchus:0.199884,(Latimeria:0.178082,(((Pogona:0.087177,Anolis:0.100846):0.057082,(Chelonoidis:0.082997,(Crocodylus:0.086847,(Struthio:0.07699,Gallus:0.061179):0.044408):0.018875):0.02522):0.030445,(Vombatus:0.083963,((Loxodonta:0.047729,Dasypus:0.064923):0.011442,(((Balaenoptera:0.027975,Vicugna:0.140222):0.016981,(Rhinolophus:0.032294,((Zalophus:0.017185,Ailuropoda:0.020542):0.013353,Lynx:0.022369):0.0136):0.006871):0.009463,((Otolemur:0.051606,((Gorilla:0.007159,Pan:6.35E-4):0.008923,Homo:4.0E-6):0.030831):0.010458,Spermophilus:0.053628):0.007761):0.009746):0.049731):0.052275):0.048136):0.0361):0.043125):0.11294):0.35224);
+end;
