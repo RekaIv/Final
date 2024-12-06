@@ -2,11 +2,26 @@
 title: "Final Project"
 author: "Reka Ivanyi"
 format: pdf
-#bibliography: apa.csl
 editor: visual
+bibliography: references.bib
+csl: apa-annotated-bibliography.csl
 ---
 
-```{r}
+**Introduction**
+
+Antimicrobial peptides, or AMPs are essential molecules whose complex evolution is not fully understood. They have been around as long as life itself: naturally occurring in the skin or gut epithelia of many vertebrates, invertebrates, plants, and bacteria. They are an integral part of organisms’ innate immune systems, and often act as the main source of protection from pathogens in organisms that do not have an otherwise well-developed adaptive immune system [@bahar2013]. In recent years, AMPs have been proven as effective therapies against bacterial and viral infections, and are currently being investigated as targeted therapies for cancer [@jafari2022, [@hilchie2011]. Most AMPs are less than 100 amino acids in length and  are cationic with a net positive charge between 2 and 9 [@chauhan2021]. They have a hydrophobic region, which, along with their alpha-helical shape, allows them to easily penetrate lipid bilayers to cause cell lysis [@tornesello2020].
+
+Scientists are working to synthesize antimicrobial proteins in a way which minimizes their allergic potential and cytotoxic effects towards healthy cells [@jafari2022]. Understanding the structure of these proteins is essential for modifying their function, and knowing their evolutionary origins helps us understand how small changes in amino acid sequences can lead to varying structures and functions [@tu2015]. Studying the rapid evolution of AMPs could also allow us to prevent bacteria from adapting to be resistant to them, as has been the case with many traditional antibiotics [@lazzaro2020]. Species-specific AMPs have also been shown to play a part in microbiome formation, since the presence of certain AMPs prevents specific bacteria from colonizing a host [@franzenburg2013]. 
+
+Though the evolutionary origins of AMPs in vertebrates have not been studied as vigorously as their direct, biomedical applications, they are known to evolve rapidly and have quickly diversifying functions [@castellanos2023]. Studies have been done on the evolution of AMPs in orders and families of vertebrates and invertebrates, but not as much on their diversification among entire phyla such as for all vertebrates [@könig2011]. The quantities of AMPs expressed and their specific sequences have been tracked within genera, as has been done with Drosophila [@hanson2019]. 
+
+My goal was to look deeper into the evolution of AMPs throughout a large dataset of 31 different vertebrate species. I identified a diverse array of antimicrobial peptides present or absent throughout the genomes of these organisms and traced the presence of each AMP through different lineages. I focused on just cathelicidins and β-defensins for now, as they are the two most common types of antimicrobial peptides [@avila2017]. I hope to apply this research to a larger dataset of vertebrates after refining the methods used to search for and quantify the presence of these types of AMPs within genomes. 
+
+**Methods**
+
+To complete this initial part of our research, we obtained full-genome protein sequences from the Ensembl public database (Harrison et. al, 2024) for 31 vertebrate species from many of the major vertebrate classes as well as one invertebrate species to use as a comparison (**Table 1**). Each proteome, which is a summary of all of the proteins expressed by the entire genome of an organism, was uploaded to Premise, and an ortholog analysis was done on the genomes using Orthofinder [@emms2019] to combine all homologous, or related, genes among all the species for which data was collected. After completing this analysis, we compiled a comprehensive list of defensins and cathelicidins commonly found in vertebrate species from the Antimicrobial Peptide Database [@wang2016] and turned them into a FASTA file, which is a format where amino acids are represented by single-letter codes and there are no spaces between the letters or protein names. This file format can be ready by bioinformatic software to search for matches between sequences. I compared the file of the AMP amino acid sequences to the proteomes using the Basic Local Alignment Search Tool, or BLAST, which searches for similarities between two amino acids or nucleotides with the e value, or significance threshold, of 0.00001 **(why is this not indexing**). For each species, I recorded which AMPs were present in the proteome and how many times their sequences were found. I also plotted an evolutionary tree of all of the species used in the study from the ortholog analysis, and I noted the presence or absence of each AMP on this phylogenetic tree using the tidyverse and ggtree packages [@rcoreteam2024], [@guangchuang2022].
+
+```{r, include=FALSE}
 require(phytools)
 packageVersion("phytools")
 library(ggtree)
@@ -14,8 +29,7 @@ library(tidyverse)
 library(aplot)
 ```
 
-## Making the Tree
-```{r}
+```{r, include=FALSE}
 tr<-ladderize(read.nexus("Vert.tree.nex"))
 tr$tip.label
 
@@ -26,3 +40,151 @@ ggtree(tree)+
   geom_tiplab()
 
 ```
+
+```{r, include=FALSE}
+Data <- read.csv("Presence or Absence of Defensins - Defensins_and_Cathelicidins2.csv")
+
+str(Data)
+
+Data$AMP <- as.factor(Data$AMP) 
+
+Data_Table <- Data %>%
+  distinct(AMP, Species) %>%  # Ensure unique combinations of Species and AMP
+  mutate(Presence = 1) %>%  # Create a binary presence column (1 indicates presence)
+  pivot_wider(
+    names_from = Species,  # Species will be the column headers
+    values_from = Presence,  # Values under each species will be presence (1)
+    values_fill = list(Presence=0)) #if there is no value it gives it the number 0
+
+sum_row <- Data_Table %>%
+  summarise(across(-AMP, sum)) %>%  # Sum across all species columns (excluding the AMP column)
+  mutate(AMP = "Total")  # Label this new row as 'Total'
+
+# Bind the summary row to the original data
+Data_Table <- bind_rows(Data_Table, sum_row)
+
+Data_Table2 <- Data_Table %>% 
+  filter(AMP=="Total") %>% 
+  pivot_longer(names_to="Species", values_to="Total", cols=-AMP) %>% 
+  reframe(Species, Total) #creates a smaller table with just each species and the total AMPs for that species 
+```
+
+```{r, include=FALSE}
+Data_TableBarPlot <- Data_Table2 %>% 
+  add_row(Species="Callorhinchus", Total=0) %>% 
+  add_row(Species="Latimeria", Total=0) %>% 
+  add_row(Species="Eptatretus", Total=0) %>% 
+  add_row(Species="Ciona", Total=0)
+ggplot(data=Data_TableBarPlot, mapping=aes(x=Species, y=Total))+
+  geom_bar(stat="identity", show.legend = FALSE, fill='skyblue')+
+  ggtitle(label = 'Defensins and Cathelicidins Found in Vertebrate Species')+
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5))+
+  theme(axis.text.x=element_text(angle = 0))+
+  xlab('Species')+
+  ylab('Number of Different AMPs')+
+  coord_flip()
+```
+
+```{r, include=FALSE}
+ForTree <- Data_Table2 
+ForTree$Species <- factor(ForTree$Species, levels = tree$tip.label)
+
+merged_data <- merge(data.frame(Species = tree$tip.label), ForTree, by.x = "Species") #changes the species and totals data to have the same order of species as the phylogenetic tree tip labels
+
+p <-  ggtree(tree)+
+  geom_tiplab(size=2.5)#making the tree into an object
+ 
+ p + geom_facet(panel = "AMP", data = merged_data, geom = geom_col,
+              aes(x = Total), orientation = 'y', width = .6, fill='skyblue') #faceting the tree with the bar chart that's made from the species and totals data
+
+```
+
+```{r, include=FALSE}
+Data2 <- read.csv("Presence or Absence of Defensins - Defensins_and_Cathelicidins2.csv")
+
+#not entirely sure why I did this all out again
+ Data_TableHM <- Data2 %>%
+   distinct(AMP, Species) %>%  
+   mutate(Presence = 1) %>%  
+   pivot_wider(
+     names_from = Species,  
+     values_from = Presence,  
+     values_fill = list(Presence=0))
+Data_TableHM$Ciona = rep(0, 29)
+Data_TableHM$Eptatretus = rep(0, 29)
+Data_TableHM$Callorhinchus = rep(0, 29) 
+Data_TableHM$Latimeria=rep(0,29)#this is an unideal way to add new columns
+
+ Data_TableHM$AMP <- as.factor(Data_TableHM$AMP)
+ 
+ HeatMap <- Data_TableHM %>% 
+   pivot_longer(cols = -AMP, names_to = "Species", values_to = "Presence") #makes a table with the AMP, species, and presence or absence each in its own column
+ 
+ HeatMap2 <- HeatMap
+ HeatMap2$Species <- factor(HeatMap2$Species, levels = tree$tip.label)
+ HeatMap2 <- merge(data.frame(Species = tree$tip.label), HeatMap2, by.x = "Species") #merging the species in the table with the species on the tree so they match up exactly
+ 
+HeatClust <- hclust(dist(HeatMap2))#can't quite figure out how to group the AMPs by type
+
+HM <-  ggplot(HeatMap2, aes(x = AMP, y = Species, fill = Presence)) +
+   geom_tile(show.legend=FALSE)+
+   theme(axis.text.x=element_text(angle = 90, size=6))+
+  theme(axis.text.y=element_blank())+
+   ylab(NULL) #making the heat map portion
+ 
+ TreeHM <-  ggtree(tree)+
+   geom_tiplab(align=TRUE, size=2.5)+
+   hexpand(0.3) #making the tree into an object and changing the font sizes
+ #try to color by class
+ #phylopic packagae
+
+ HM %>% insert_left(TreeHM, width=0.8) #the actual plot combined using aplot
+```
+
+```{r, include=FALSE}
+Data_TableAnova <- Data_Table2 %>% 
+  add_row(Species="Callorhinchus", Total=0) %>% 
+  add_row(Species="Latimeria", Total=0) %>% 
+  add_row(Species="Eptatretus", Total=0) %>% 
+  add_row(Species="Ciona", Total=0) %>% 
+  mutate(Class=c("Mammalia", "Actinopterygii", "Reptilia", "Mammalia", "Reptilia", "Reptilia", "Actinopterygii", "Mammalia", "Aves", "Mammalia", "Mammalia", "Actinopterygii", "Actinopterygii", "Mammalia", "Mammalia", "Mammalia", "Mammalia", "Actinopterygii", "Reptilia", "Mammalia", "Actinopterygii", "Actinopterygii", "Mammalia", "Aves", "Actinopterygii", "Mammalia", "Mammalia", "Mammalia", "Chondrichthyes", "Actinistia", "Myxini", "Ascidiacea"))
+
+#Chondrichthyes-Aves          p = 0.0045948  
+#Mammalia-Aves                p = 0.0037877
+#Myxini-Aves                  p = 0.0045948
+#Reptilia-Aves                p = 0.0051045
+#Aves-Ascidiacea              p = 0.0045948
+#Aves-Actinopterygii          p = 0.0034841
+#Aves-Actinistia              p = 0.0045948
+
+one.way <- aov(Total ~ Class, data = Data_TableAnova)
+summary(one.way) 
+#(F(7) = 5.472, p = 0.000751)
+
+tukey <- TukeyHSD(one.way)
+tukey
+
+```
+
+**Results**
+
+![This graph shows the number of defensin and cathelicidin proteins found in the genomes of the list of 31 vertebrates (and one invertebrate) from various orders and classes. Species with no AMPs present are not listed.](images/clipboard-3711542540.png)
+
+![This figure shows how the amount of AMPs found in each species align with their evolutionary relatedness. The tree was generated using an Orthofinder analysis, and *Latimeria* and *Callorhinchus* were put in the wrong place. They should be closer to *Eptatretus*.](images/clipboard-1712975173.png)
+
+![This figure shows the presence or absence of each AMP studied and which species it was found in. The order of the species in the matrix corresponds to their evolutionary relatedness from the tree. The light blue signifies presence and the dark blue signifies absence from the genome.](images/clipboard-1705464493.png)
+
+The chicken and ostrich have the highest number of different AMPs (11 and 9 respectively), followed by the chimpanzee and human (which both have 7). The coelacanth, ghost shark, hagfish, and sea squirt had none of the AMPs that were searched for. There was a significant difference between the numbers of total antimicrobial peptides between the classes of animals studied (F7  = 5.472, p = 0.000751). The significant differences were between the class Aves and each of the other classes: Chondrichthyes (p = 0.0045948), Mammalia (p = 0.0037877), Myxini (p = 0.0045948), Reptilia (p = 0.0051045), Ascidiacea (p = 0.0045948), Actinopterygii (p = 0.0034841), and Actinistia (p = 0.0045948). Human defensins 3 and 4 were found among most of the mammals, while the chicken and ostrich defensins were found in the chicken and ostrich genomes. AvBD10, an avian AMP, was not only found in the birds, but in most of the reptiles as well. This was also true of the duck-derived peptide AvBD9. Most of the fish derived AMPs were found exclusively within fish genomes. Bovine tracheal antimicrobial peptide and another very similar peptide, TAP 20N, were found in the genomes of the crocodile, panda, human, gorilla, and chimpanzee. Only two cathelicidins were found among all the species, with Fe Cath being found in the Canada lynx and Greater horseshoe bat, and pc Cath 1 being found in just the chicken.
+
+**Discussion**
+
+The goal of this study was to generate more information about the evolution of antimicrobial proteins in the phylum chordata and see whether there are lineage-specific AMPs present in vertebrate genomes. We found clear differences between the numbers and types of defensins and cathelicidins expressed in the different vertebrate lineages (**Fig 3**). Human beta defensin orthologs were found in most of the mammal species, but occurred less frequently in other vertebrates. The chicken and ostrich derived AMPs, on the other hand, were found mostly in the ostrich and chicken, the two species of bird examined in the study. This was expected, but it shows that the analysis was done correctly. The AMPs that were originally derived from fish species were found most commonly in the fish species; another expected conclusion, but a sign of successful analysis. Pdbs 2 was one of these peptides, and it is known to protect against bacterial infections caused by aquatic bacteria, suggesting that this peptide has become specialized to protect fish against the bacteria they encounter most frequently [@chen2013]. 
+
+The chicken and ostrich genomes contained the most antimicrobial proteins, but that could be because a lot of the reference AMPs used were derived from chickens and ostriches. Humans and other mammals were found to have the second-highest variety of AMPs, and that could be because most of the other defensins and cathelicidins that weren’t avian-derived were derived from mammals. Studies also suggest that mammals could have more types of AMPs because they encounter more microbes in their natural habitats [@tu2015]. The more different types of microbes that an organism encounters, the more types of AMPs it is likely to develop. The clear differences in AMP types of various species and also the variation between AMP numbers suggest that AMPs do in fact evolve to fit the ecological niche and environmental conditions of species [@tu2015]. 
+
+It has been studied that immune genes in various vertebrate species have evolved significantly over time, and that this diversification or loss in genes is driven by the need for specific biological functions. Genes for defensins and cathelicidins have been found to evolve by duplication events in avian and primate species, resulting in a diverse array of AMPs that can protect against a wide variety of bacteria, viruses, and fungi [@vandijk2023]. Genes similar to those that produce cathelicidins have been found in jawless fish as well, which suggests that avian and primate cathelicidins, and potentially other AMPs, may originate from a common ancestor shared between cyclostomes and gnathostomes [@vandijk2023]. Our results further confirm these findings. 
+
+In our study, the AMPs examined were not found in the Sea squirt, the Hagfish, the West Indian ocean coelacanth, or the Australian ghost shark. The sea squirt isn’t a vertebrate, so it makes sense that the vertebrate-derived AMPs were not found in its genome. The hagfish is one of the earliest evolved vertebrates, so it seems like the most common vertebrate AMPs like cathelicidins and defensins evolved later than the Eptatretus genus. The coelacanth and ghost shark are likely different enough from the other fish species and not similar enough to the rest of the vertebrate classes to have the same AMPs as any of the other species.
+
+There are many future directions in which we can take this study. We are planning on using a much larger dataset of vertebrate genomes to analyze for a comprehensive list of common antimicrobial proteins. We will create a list of AMPs that encompasses all the known cathelicidins and beta defensins, as well as other AMPs that are more commonly found in fish. We will also refine the methods used for the analysis of the BLAST data, as the process will have to be more streamlined when working with a lot more species. There is currently an ascertainment bias present in our study, as we can only find the AMPs that we are specifically looking for. If we search for more avian derived proteins for example, we will find more AMPs present in avian species. This could be skewing the numbers of different AMPs we found for each species, and the reduction of this bias will be considered in future studies. 
